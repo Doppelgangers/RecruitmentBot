@@ -9,11 +9,12 @@ from aiogram import F
 
 from keyboards.any import make_row_keyboard
 import keyboards.menu
-
+from handlers.summary.vacancy import get_vacancy
 router = Router()
 
 bool_keyboard = ["Да", "Нет"]
 education_keyboard = ["Высшее", "Неполное высшее", "Среднее профессиональное"]
+
 
 class OrderSummary(StatesGroup):
     working_position = State()
@@ -32,7 +33,19 @@ class OrderSummary(StatesGroup):
     agreement = State()
 
 
-@router.callback_query(text="трудоустроиться")
+@router.callback_query(text="вакансии")
+async def give_vacancy(callback: types.CallbackQuery):
+    vacancy_list = [{'title': 'Рабочие специальности', 'vacancy_list': ['Бетонщик', 'Гибщик труб', 'Кровельщик', 'Машинист козлового / мостового крана (5,6 разряд)', 'Оператор станков с ЧПУ (5 разряд)', 'Плотник', 'Слесарь по сборке металлоконструкций (3 4, 5, 6 разряд)', 'Токарь-карусельщик\xa0(5,6 разряд)', 'Токарь-расточник\xa0(5,6 разряд)', 'Токарь-универсал\xa0(5,6 разряд)', 'Фрезеровщик (5,6 разряд)', 'Штукатур-маляр']}, {'title': 'Инженерно-технические специальности', 'vacancy_list': ['Ведущий специалист (ценообразование)', 'Диспетчер производства', 'Инженер-технолог', 'Инженер по подготовке производства', 'Инспектор технического контроля', 'Мастер (мехобработка)', 'Мастер по сварке', 'Специалист по переводу', 'Техник по инсрументу']}]
+    for group in vacancy_list:
+        buttons = [ [types.InlineKeyboardButton(text=name, callback_data=f"qwe")] for name in group['vacancy_list']]
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+        print(buttons)
+        await callback.message.answer(text=f"{group['title']}", reply_markup=keyboard)
+
+
+
+
+@router.callback_query(text="отправить резюме")
 async def start_fsm_summary(callback: types.CallbackQuery, state: FSMContext):
     """ Начало опроса, запрос желаемой должности. """
     await callback.answer(show_alert=True)
