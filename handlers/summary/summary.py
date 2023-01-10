@@ -1,12 +1,14 @@
 import asyncio
 import datetime
 
-from aiogram import Router, types
+from aiogram import Router, types, Bot
 from aiogram.dispatcher.fsm.state import StatesGroup, State
 from aiogram.dispatcher.fsm.context import FSMContext
 from aiogram.types import Message
 from aiogram import F
 
+import config
+from keyboards.admin_kb import get_keyboard_admin_choose_resume
 from keyboards.any import make_row_keyboard
 import keyboards.menu
 from handlers.summary.vacancy import get_vacancy
@@ -35,14 +37,13 @@ class OrderSummary(StatesGroup):
 
 @router.callback_query(text="вакансии")
 async def give_vacancy(callback: types.CallbackQuery):
+    await callback.answer(show_alert=True)
     vacancy_list = [{'title': 'Рабочие специальности', 'vacancy_list': ['Бетонщик', 'Гибщик труб', 'Кровельщик', 'Машинист козлового / мостового крана (5,6 разряд)', 'Оператор станков с ЧПУ (5 разряд)', 'Плотник', 'Слесарь по сборке металлоконструкций (3 4, 5, 6 разряд)', 'Токарь-карусельщик\xa0(5,6 разряд)', 'Токарь-расточник\xa0(5,6 разряд)', 'Токарь-универсал\xa0(5,6 разряд)', 'Фрезеровщик (5,6 разряд)', 'Штукатур-маляр']}, {'title': 'Инженерно-технические специальности', 'vacancy_list': ['Ведущий специалист (ценообразование)', 'Диспетчер производства', 'Инженер-технолог', 'Инженер по подготовке производства', 'Инспектор технического контроля', 'Мастер (мехобработка)', 'Мастер по сварке', 'Специалист по переводу', 'Техник по инсрументу']}]
     for group in vacancy_list:
         buttons = [ [types.InlineKeyboardButton(text=name, callback_data=f"qwe")] for name in group['vacancy_list']]
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
         print(buttons)
         await callback.message.answer(text=f"{group['title']}", reply_markup=keyboard)
-
-
 
 
 @router.callback_query(text="отправить резюме")
@@ -201,12 +202,50 @@ async def set_specialization(message: Message, state: FSMContext):
 
 
 @router.message(OrderSummary.agreement, F.text.in_(bool_keyboard))
-async def set_specialization(message: Message, state: FSMContext):
+async def set_specialization(message: Message, state: FSMContext, bot: Bot):
     await state.update_data(agreement=message.text)
+    await state.update_data(chat_id=message.chat.id)
 
     data = await state.get_data()
 
     await message.answer(text="Вы успешно отправили резюме роботадателю.", reply_markup=types.ReplyKeyboardRemove())
-    print(data)
+    log_text = f""" Вам было отправленно новое резюме на рассмотрение
+    
+Желаемая вакансия: {data['working_position']}
+ФИО: {data["full_name"]}
+Возрамт: {calculate_age(data["birthday"])}
 
+<b>Место жительства</b>
+Прожимвает в : {data['place_of_residence']}
+Имеет гражданство: {data['citizenship']}
+
+<b>Контактные данные</b>
+Номер тедефона: {data['phone']}
+Почта: {data['email']}
+
+<b>Образование</b>
+Уровень образования: {data['education_lvl']}
+Учился в: {data['educational_institution']}
+По спецальности: {data['specialization']}
+Окончил обучение: {data['year_of_graduation']}
+
+<b>Дополнительные аттестации</b>
+Атестации: {data['attestations']}
+"""
+
+    for admin_chat_id in config.ADMIN_CHATS:
+        await bot.send_message(chat_id=admin_chat_id, text=log_text, parse_mode="HTML", reply_markup=get_keyboard_admin_choose_resume())
     await state.clear()
+
+
+def calculate_age(born):
+    today = datetime.date.today()
+    try:
+        birthday = born.replace(year=today.year)
+    except ValueError:
+        birthday = born.replace(year=today.year, month=born.month + 1, day=1)
+    if birthday > today:
+        return today.year - born.year - 1
+    else:
+        return today.year - born.year
+    
